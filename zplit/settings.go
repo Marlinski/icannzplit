@@ -12,7 +12,6 @@ import (
 
 // config directory
 const (
-	IcannZplitConfigDir  = "icannzplit"
 	IcannZplitConfigFile = "settings.json"
 )
 
@@ -24,8 +23,7 @@ type Config struct {
 
 // ConfigInit parse an existing config or create a default one
 func ConfigInit(homedir string) *Config {
-	configdir := filepath.Join(homedir, IcannZplitConfigDir)
-	configfile := filepath.Join(configdir, IcannZplitConfigFile)
+	configfile := filepath.Join(homedir, IcannZplitConfigFile)
 
 	cfg, err := loadConfig(configfile)
 	if err != nil {
@@ -67,12 +65,11 @@ func loadConfig(configFile string) (*Config, error) {
 
 // Save the config in a json file
 func (c *Config) Save(homedir string) error {
-	configdir := filepath.Join(homedir, IcannZplitConfigDir)
-	configfile := filepath.Join(configdir, IcannZplitConfigFile)
+	configfile := filepath.Join(homedir, IcannZplitConfigFile)
 	util.Log.Debugf("saving settings into %#v", configfile)
 
 	// build destination directory if it doesn't exists
-	err := os.MkdirAll(configdir, os.ModePerm)
+	err := os.MkdirAll(homedir, os.ModePerm)
 	if err != nil {
 		return err
 	}

@@ -43,7 +43,7 @@ type TunnelConfig struct {
 // Init initialize configurations
 func Init(homedir, user, pass string, routingTable int) error {
 	if _, err := os.Stat(homedir); os.IsNotExist(err) {
-		return err
+		os.Mkdir(homedir, os.ModePerm)
 	}
 
 	// create ipvanish config dir if it does not exists

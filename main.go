@@ -35,14 +35,14 @@ func main() {
 		log.Printf(" =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- \n")
 
 		// load ipvanish config
-		err := ipvanish.Init(c.String("homedir"), c.String("ipvanish-user"), c.String("ipvanish-pass"), c.Int("ipvanish-table"))
+		err := ipvanish.Init(c.String("config"), c.String("ipvanish-user"), c.String("ipvanish-pass"), c.Int("ipvanish-table"))
 		if err != nil {
 			log.Fatalf("fail to setup ipvanish: %+v", err)
 		}
 
 		// load icannsplit config
-		cfg := zplit.ConfigInit(c.String("homedir"))
-		cfg.Save(c.String("homedir"))
+		cfg := zplit.ConfigInit(c.String("config"))
+		cfg.Save(c.String("config"))
 
 		// build routing plan
 		plan := cfg.BuildPlan()
