@@ -3,7 +3,9 @@ package main
 import (
 	"log"
 	"os"
+	"os/signal"
 
+	"github.com/Marlinski/icannzplit/util"
 	"github.com/Marlinski/icannzplit/vpn/ipvanish"
 	"github.com/Marlinski/icannzplit/zplit"
 
@@ -51,6 +53,14 @@ func main() {
 
 		// connect all the routes
 		plan.Execute()
+
+		// listen for interrupt signal
+		signalChannel := make(chan os.Signal, 1)
+		signal.Notify(signalChannel, os.Interrupt)
+		<-signalChannel
+		util.Log.Errorf("Interrupt signal caught... cleaning up")
+		ipvanish.Stop()
+
 		return nil
 	}
 

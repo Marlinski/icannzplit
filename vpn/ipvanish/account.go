@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sync"
 
 	"github.com/Marlinski/icannzplit/util"
 
@@ -31,6 +32,9 @@ var (
 	configs   []TunnelConfig
 	log       *logging.Logger
 	table     int
+
+	stopChan chan struct{}
+	wg       sync.WaitGroup
 )
 
 // TunnelConfig single endpoint configuration
@@ -66,6 +70,9 @@ func Init(homedir, user, pass string, routingTable int) error {
 	}
 
 	table = routingTable
+
+	stopChan = make(chan struct{})
+	wg = sync.WaitGroup{}
 	return nil
 }
 

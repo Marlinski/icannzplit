@@ -17,8 +17,6 @@ var (
 
 // Execute a plan
 func (rp *RoutingPlan) Execute() {
-	global = make(chan events.OpenvpnEvent)
-
 	// we select the default route as the one routing toward google dns server
 	routes, err := netlink.RouteGet(net.ParseIP("8.8.8.8"))
 	if err != nil {
@@ -39,12 +37,5 @@ func (rp *RoutingPlan) Execute() {
 		}
 
 		go mon.StartOpenvpn(routes[0])
-	}
-
-	for {
-		select {
-		case event := <-global:
-			util.Log.Debugf(event.String())
-		}
 	}
 }

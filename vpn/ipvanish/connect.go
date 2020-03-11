@@ -7,8 +7,6 @@ import (
 
 	"github.com/Marlinski/icannzplit/util"
 
-	"github.com/op/go-logging"
-
 	"github.com/Marlinski/go-openvpn"
 	"github.com/Marlinski/go-openvpn/events"
 	"github.com/vishvananda/netlink"
@@ -16,11 +14,12 @@ import (
 
 // IfaceMonitor manage a specific interface
 type IfaceMonitor struct {
-	iface   string
-	config  TunnelConfig
-	routes  []string
-	ctrl    openvpn.Controller
-	channel chan events.OpenvpnEvent
+	iface       string
+	config      TunnelConfig
+	routes      []string
+	ctrl        openvpn.Controller
+	channel     chan events.OpenvpnEvent
+	staticRoute netlink.Route
 }
 
 // NewIfaceMonitor opens up a tunnel, sets up the routes  and monitor its status
@@ -66,7 +65,6 @@ func (m *IfaceMonitor) StartOpenvpn(defaultRoute netlink.Route) {
 	}
 
 	// add command flag to openvpn
-	cfg.SetLogLevel(logging.DEBUG)
 	cfg.Set("ca", certFile)
 	cfg.Set("dev-type", "tun")
 	cfg.Set("dev", m.config.DeviceName)
@@ -97,14 +95,15 @@ func (m *IfaceMonitor) saveOpenvpnRoute(remote string, defaultRoute netlink.Rout
 			continue
 		}
 
-		defaultRoute.Dst = &net.IPNet{
+		m.staticRoute = defaultRoute
+		m.staticRoute.Dst = &net.IPNet{
 			IP:   addr,
 			Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
 		}
-		defaultRoute.Protocol = 4 // proto static
+		m.staticRoute.Protocol = 4 // proto static
 
-		util.Log.Noticef("adding static route to %s (%s): %+v", addr, remote, defaultRoute)
-		if err := netlink.RouteAdd(&defaultRoute); err != nil {
+		util.Log.Noticef("%s: adding static route to %s (%s): %+v", m.iface, addr, remote, m.staticRoute)
+		if err := netlink.RouteAdd(&m.staticRoute); err != nil {
 			return err
 		}
 	}
@@ -114,11 +113,20 @@ func (m *IfaceMonitor) saveOpenvpnRoute(remote string, defaultRoute netlink.Rout
 
 func (m *IfaceMonitor) processEvents() {
 	go func() {
+		wg.Add(1)
 		for {
-			e := <-m.channel
-			util.Log.Noticef("event: %s", e.String())
-			if e.Code() == events.OpenvpnEventUp {
-				m.setUpRoute()
+			select {
+			case e := <-m.channel:
+				util.Log.Noticef("%s: %s", m.iface, e.String())
+				if e.Code() == events.OpenvpnEventUp {
+					m.setUpRoute()
+				}
+			case <-stopChan:
+				// cleanup
+				util.Log.Noticef("%s: cleaning up route %+v", m.iface, m.staticRoute)
+				netlink.RouteDel(&m.staticRoute)
+				wg.Done()
+				return
 			}
 		}
 	}()
@@ -128,7 +136,7 @@ func (m *IfaceMonitor) setUpRoute() {
 	// local tunnel internal ip
 	ifaceAddr, err := m.ctrl.GetOpenVpnEnv("ifconfig_local")
 	if err != nil {
-		util.Log.Errorf("ip address not found")
+		util.Log.Errorf("%s: ip address not found", m.iface)
 		return
 	}
 	src := net.ParseIP(ifaceAddr)
@@ -136,20 +144,20 @@ func (m *IfaceMonitor) setUpRoute() {
 	// remote internal ip
 	vpnGateway, err := m.ctrl.GetOpenVpnEnv("route_vpn_gateway")
 	if err != nil {
-		util.Log.Errorf("vpn gateway not found")
+		util.Log.Errorf("%s: vpn gateway not found", m.iface)
 		return
 	}
 
 	gw := net.ParseIP(vpnGateway)
 	if gw == nil {
-		util.Log.Errorf("wrong vpn gateway ip %s: ", gw)
+		util.Log.Errorf("%s: wrong vpn gateway ip %s", m.iface, gw)
 		return
 	}
 
 	// device attributes
 	dev, err := netlink.LinkByName(m.iface)
 	if err != nil {
-		util.Log.Errorf("cannot get interface: %s", m.iface)
+		util.Log.Errorf("%s: cannot get interface", m.iface)
 		return
 	}
 
@@ -157,7 +165,7 @@ func (m *IfaceMonitor) setUpRoute() {
 	for _, route := range m.routes {
 		_, ipnet, err := net.ParseCIDR(route)
 		if err != nil {
-			util.Log.Errorf("cannot parse route: %s", route)
+			util.Log.Errorf("%s: cannot parse route %s", m.iface, route)
 			continue
 		}
 
@@ -175,9 +183,9 @@ func (m *IfaceMonitor) setUpRoute() {
 		}
 
 		if err := netlink.RouteAdd(&nlroute); err != nil {
-			util.Log.Errorf("cannot add route: %s", route)
+			util.Log.Errorf("%s: cannot add route %s", m.iface, route)
 			continue
 		}
-		util.Log.Noticef("route added: %s", route)
+		util.Log.Noticef("%s: route added %s", m.iface, route)
 	}
 }
