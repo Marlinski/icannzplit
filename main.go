@@ -14,17 +14,17 @@ func main() {
 	app := cli.NewApp()
 
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "config",
 			Value: "/icannzplit",
 			Usage: "specify icannzplit home directory",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "ipvanish-user",
 			Value: "**IPVANISH_USERNAME**",
 			Usage: "specify ipvanish username",
 		},
-		cli.StringFlag{
+		&cli.StringFlag{
 			Name:  "ipvanish-pass",
 			Value: "**IPVANISH_PASSWORD**",
 			Usage: "specify ipvanish password",
