@@ -109,9 +109,16 @@ func (m *IfaceMonitor) setUpRoute() {
 			Mask: ipnet.Mask,
 		}
 
+		dev, err := netlink.LinkByName(m.iface)
+		if err != nil {
+			util.Log.Errorf("cannot get interface: %s", m.iface)
+			continue
+		}
+
 		nlroute := netlink.Route{
-			Dst: dst,
-			Gw:  gw,
+			LinkIndex: dev.Attrs().Index,
+			Dst:       dst,
+			Gw:        gw,
 		}
 
 		if err := netlink.RouteAdd(&nlroute); err != nil {
