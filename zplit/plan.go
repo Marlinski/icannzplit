@@ -2,11 +2,12 @@ package zplit
 
 import (
 	"encoding/json"
-	"icannzplit/util"
-	"icannzplit/vpn/ipvanish"
 	"math"
 	"math/bits"
 	"strconv"
+
+	"github.com/Marlinski/icannzplit/util"
+	"github.com/Marlinski/icannzplit/vpn/ipvanish"
 )
 
 // IPRange contains a list of ip address range

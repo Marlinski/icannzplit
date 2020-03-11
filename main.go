@@ -1,10 +1,11 @@
 package main
 
 import (
-	"icannzplit/vpn/ipvanish"
-	"icannzplit/zplit"
 	"log"
 	"os"
+
+	"github.com/Marlinski/icannzplit/vpn/ipvanish"
+	"github.com/Marlinski/icannzplit/zplit"
 
 	"github.com/urfave/cli"
 )

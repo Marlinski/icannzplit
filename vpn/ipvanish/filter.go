@@ -1,9 +1,10 @@
 package ipvanish
 
 import (
-	"icannzplit/util"
 	"math/rand"
 	"time"
+
+	"github.com/Marlinski/icannzplit/util"
 )
 
 // FilterSettings for IPvanish

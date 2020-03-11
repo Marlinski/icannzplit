@@ -1,4 +1,4 @@
-module icannzplit
+module github.com/Marlinski/icannzplit
 
 go 1.14
 

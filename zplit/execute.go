@@ -1,8 +1,8 @@
 package zplit
 
 import (
-	"icannzplit/util"
-	"icannzplit/vpn/ipvanish"
+	"github.com/Marlinski/icannzplit/util"
+	"github.com/Marlinski/icannzplit/vpn/ipvanish"
 
 	"github.com/Marlinski/go-openvpn/events"
 )

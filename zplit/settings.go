@@ -3,11 +3,12 @@ package zplit
 import (
 	"encoding/json"
 	"fmt"
-	"icannzplit/util"
-	"icannzplit/vpn/ipvanish"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"github.com/Marlinski/icannzplit/util"
+	"github.com/Marlinski/icannzplit/vpn/ipvanish"
 )
 
 // config directory

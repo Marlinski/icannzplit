@@ -2,11 +2,12 @@ package ipvanish
 
 import (
 	"fmt"
-	"icannzplit/util"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/Marlinski/icannzplit/util"
 
 	"github.com/op/go-logging"
 )
