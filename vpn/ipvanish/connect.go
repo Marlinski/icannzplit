@@ -49,27 +49,67 @@ func NewIfaceMonitor(iface string, routes []string, global chan events.OpenvpnEv
 }
 
 // StartOpenvpn fires up the tunnel
-func (m *IfaceMonitor) StartOpenvpn() {
+func (m *IfaceMonitor) StartOpenvpn(defaultRoute netlink.Route) {
 	// prepare openvpn
 	configfile := filepath.Join(configDir, m.config.FileName)
-	openvpnCfg := openvpn.LoadConfig(m.iface, configfile)
-	openvpnCfg.SetLogLevel(logging.DEBUG)
-	//openvpnCfg.SetLogStd(true)
-	openvpnCfg.Set("ca", certFile)
-	openvpnCfg.Set("dev-type", "tun")
-	openvpnCfg.Set("dev", m.config.DeviceName)
-	openvpnCfg.Set("auth-user-pass", authFile)
-	openvpnCfg.Flag("route-noexec")
-	openvpnCfg.Flag("suppress-timestamps")
-	openvpnCfg.Flag("nobind")
-	openvpnCfg.Flag("mute-replay-warnings")
+	cfg := openvpn.LoadConfig(m.iface, configfile)
+
+	// save the route to the tunnel endpoint
+	remote, err := cfg.GetRemote()
+	if err != nil {
+		return
+	}
+
+	err = m.saveOpenvpnRoute(remote, defaultRoute)
+	if err != nil {
+		return
+	}
+
+	// add command flag to openvpn
+	cfg.SetLogLevel(logging.DEBUG)
+	cfg.Set("ca", certFile)
+	cfg.Set("dev-type", "tun")
+	cfg.Set("dev", m.config.DeviceName)
+	cfg.Set("auth-user-pass", authFile)
+	cfg.Flag("route-noexec")
+	cfg.Flag("suppress-timestamps")
+	cfg.Flag("nobind")
+	cfg.Flag("mute-replay-warnings")
 
 	// event channel
 	m.channel = make(chan events.OpenvpnEvent)
 	m.processEvents()
 
 	// Create the openvpn instance
-	m.ctrl = openvpnCfg.Run(m.channel)
+	m.ctrl = cfg.Run(m.channel)
+}
+
+func (m *IfaceMonitor) saveOpenvpnRoute(remote string, defaultRoute netlink.Route) error {
+	addrs, err := net.LookupIP(remote)
+	if err != nil {
+		return err
+	}
+
+	// should have only 1 IP address
+	for _, addr := range addrs {
+		if addr.To4() == nil {
+			// only supports IPv4 for now
+			continue
+		}
+
+		defaultRoute.Dst = &net.IPNet{
+			IP:   addr,
+			Mask: net.IPv4Mask(0xff, 0xff, 0xff, 0xff),
+		}
+		defaultRoute.Protocol = 4 // proto static
+
+		util.Log.Noticef("adding static route to %s (%s): %+v", addr, remote, defaultRoute)
+		if err := netlink.RouteAdd(&defaultRoute); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (m *IfaceMonitor) processEvents() {
@@ -85,6 +125,15 @@ func (m *IfaceMonitor) processEvents() {
 }
 
 func (m *IfaceMonitor) setUpRoute() {
+	// local tunnel internal ip
+	ifaceAddr, err := m.ctrl.GetOpenVpnEnv("ifconfig_local")
+	if err != nil {
+		util.Log.Errorf("ip address not found")
+		return
+	}
+	src := net.ParseIP(ifaceAddr)
+
+	// remote internal ip
 	vpnGateway, err := m.ctrl.GetOpenVpnEnv("route_vpn_gateway")
 	if err != nil {
 		util.Log.Errorf("vpn gateway not found")
@@ -97,6 +146,14 @@ func (m *IfaceMonitor) setUpRoute() {
 		return
 	}
 
+	// device attributes
+	dev, err := netlink.LinkByName(m.iface)
+	if err != nil {
+		util.Log.Errorf("cannot get interface: %s", m.iface)
+		return
+	}
+
+	// set up all the routes
 	for _, route := range m.routes {
 		_, ipnet, err := net.ParseCIDR(route)
 		if err != nil {
@@ -109,16 +166,12 @@ func (m *IfaceMonitor) setUpRoute() {
 			Mask: ipnet.Mask,
 		}
 
-		dev, err := netlink.LinkByName(m.iface)
-		if err != nil {
-			util.Log.Errorf("cannot get interface: %s", m.iface)
-			continue
-		}
-
 		nlroute := netlink.Route{
 			LinkIndex: dev.Attrs().Index,
 			Dst:       dst,
+			Src:       src,
 			Gw:        gw,
+			Protocol:  4, // proto: static
 		}
 
 		if err := netlink.RouteAdd(&nlroute); err != nil {
